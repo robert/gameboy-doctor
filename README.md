@@ -1,19 +1,28 @@
 # Gameboy Doctor
 
-Are you working on building a Gameboy emulator? Are you failing [Blargg's test ROMs](TODO), or can't even run them? Are you having trouble finding your bugs?
+Are you building a Gameboy emulator? Are you stuck? Are you failing [Blargg's test ROMs](https://github.com/retrio/gb-test-roms) and can't work out why?
 
 Gameboy Doctor can help!
 
+![Gameboy Doctor Example](./example.jpg)
+
 ## What is Gameboy Doctor?
 
-Gameboy Doctor is a tool that compares your emulator's CPU to an example emulator that passes Blargg's test ROMs. It finds the exact tick when your CPU's state diverges from the example CPU, which helps you isolate and fix your bugs.
+Gameboy Doctor is a tool that compares your emulator to an example emulator that passes Blargg's test ROMs. It finds the exact tick when your emulator's state diverges from the example's, helping you isolate and fix your bugs. You don't need to have implemented an LCD in order to use it, and you don't even have to be able to successfully get any kind of pass/fail message back from Blargg! All you need is a minimally functional CPU and motherboard.
+
+## Requirements
+
+Just Python3, no third-party libraries.
 
 ## How do I use Gameboy Doctor?
 
-1. Choose a test ROM (if you're having trouble running any of them then [`cpu_instrs`](TODO) numbers `06` and `07` are good ones to start with)
-1. Make 2 tweaks to your emulator:
+### 1. Choose a test ROM
 
-1. Initialize the CPU's state to the state it should have immediately after executing the boot ROM:
+Choose a [`cpu_instrs` individual test ROM](https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs/individual) (these are currently the only ones supported by Gameboy Doctor - see below)
+
+### 2. Make 2 tweaks to your emulator
+
+* Initialize the CPU's state to the state it should have immediately after executing the boot ROM:
 
 | Register | Value |
 | ----------- | ----------- |
@@ -28,9 +37,11 @@ Gameboy Doctor is a tool that compares your emulator's CPU to an example emulato
 |SP|0xFFFE|
 |PC|0x0100|
 
-1. Hardcode your LCD (or memory map if you haven't implemented an LCD yet) to return `0x90` when the `LY` register is read (memory location `0xFF44`). This is what I did when generating these logs, in order to prevent spurious log divergences.
+* Hardcode your LCD (or your motherboard's memory map if you haven't implemented an LCD yet) to return `0x90` when the `LY` register is read (memory location `0xFF44`). This is what I did when generating these logs, because returning a constant prevent spurious log divergences.
 
-1. Update your emulator to log to a file the state of the CPU after each operation to a, using the following format:
+### 3. Log the state of your CPU
+
+Update your emulator to log the state of the CPU after each operation to a file, using the following format for each line (replace the example numbers with your CPU's values):
 
 ```
 A:00 F:11 B:22 C:33 D:44 E:55 H:66 L:77 SP:8888 PC:9999 PCMEM:AA,BB,CC,DD
@@ -38,9 +49,11 @@ A:00 F:11 B:22 C:33 D:44 E:55 H:66 L:77 SP:8888 PC:9999 PCMEM:AA,BB,CC,DD
 
 All of the values between `A` and `PC` are the hex-encoded values of the corresponding registers. The final value (`PCMEM`) is the 4 bytes stored in the memory locations near `PC` (ie. the values at `pc,pc+1,pc+2,pc+3`).
 
-1. Run your emulator and create a log file. You can kill the program at any point - Gameboy Doctor will tell you if your log file is correct but ends before the test ROM has finished. If you pass the test then your emulator will display the word "Passed" on the LCD, and write the bytes for the word "Passed" to [the serial output](TODO)
+Run your emulator and create a log file. You can kill the program at any point - Gameboy Doctor will tell you if your log file is correct but ends before the test ROM has finished. If you pass the test then your emulator will display the word "Passed" on the LCD, and write the bytes for the word "Passed" to [the serial output](https://gbdev.io/pandocs/Serial_Data_Transfer_%28Link_Cable%29.html). However, you don't need to pass or even finish the tests in order to use Gameboy Doctor.
 
-1. Once you have your logfile, feed it into Gameboy Doctor like so:
+### 4. Feed your logfile to Gameboy Doctor
+
+Once you have your logfile, feed it into Gameboy Doctor like so:
 
 ```
 ./gameboy-doctor /path/to/your/logfile $ROM_TYPE $ROM_NUMBER
@@ -58,7 +71,7 @@ On windows you may need to invoke the Python interpreter directly:
 python3 gameboy-doctor /path/to/your/logfile cpu_instrs 3
 ```
 
-1. Gameboy Doctor will tell you how you've done! For example:
+Gameboy Doctor will tell you how you're doing and give suggestions on bugfixes. For example:
 
 ```
 $ ./gameboy-doctor ../my-emulator/logs/3.log cpu_instrs 3
@@ -66,8 +79,8 @@ $ ./gameboy-doctor ../my-emulator/logs/3.log cpu_instrs 3
 
 Mismatch in CPU state at line 9997:
 
-MINE:	  A:3E F:C--- B:01 C:07 D:C9 E:BA H:49 L:BB SP:FFFE PC:0208 PCMEM:1C,20,FB,14
-YOURS:	A:3D F:C--- B:01 C:07 D:C9 E:BA H:49 L:BB SP:FFFE PC:0208 PCMEM:1C,20,FB,14
+MINE:   A:3E F:C--- B:01 C:07 D:C9 E:BA H:49 L:BB SP:FFFE PC:0208 PCMEM:1C,20,FB,14
+YOURS:  A:3D F:C--- B:01 C:07 D:C9 E:BA H:49 L:BB SP:FFFE PC:0208 PCMEM:1C,20,FB,14
 
 The CPU state before this (at line 9996) was:
 
@@ -80,7 +93,7 @@ The last operation executed (in between lines 9996 and 9997) was:
 Perhaps the problem is with this opcode, or with your interrupt handling?
 ```
 
-Or eventually:
+Eventually you'll hopefully see:
 
 ```
 $ ./gameboy-doctor ../my-emulator/logs/3.log cpu_instrs 3
@@ -88,3 +101,11 @@ $ ./gameboy-doctor ../my-emulator/logs/3.log cpu_instrs 3
 
 Your log file matched mine for all 1066160 lines - you passed the test ROM!
 ```
+
+## Future Work
+
+Gameboy Doctor currently only supports Blargg's `cpu_instrs` test ROMs because these are the most useful for initial debugging. It should be relatively easy to support other test ROMs, although small timing differences that don't affect the successful running of the emulator may cause divergences in CPU states between otherwise well-functioning emulators.
+
+## Acknowledgements
+
+This tool was inspired by [GitHub user wheremyfoodat](https://github.com/wheremyfoodat/Gameboy-logs).
