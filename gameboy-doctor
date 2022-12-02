@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+
+import json
+import os
+import zipfile
+import argparse
+
+KEY_ORDER = ['A', 'F', 'B', 'C', 'D', 'E', 'H', 'L', 'SP', 'PC', 'PCMEM']
+RED = u"\u001b[31m"
+GREEN = u"\u001b[32m"
+RESET = u"\u001b[0m"
+
+ERROR_MESSAGE = "============== ERROR =============="
+SUCCESS_MESSAGE = "============== SUCCESS =============="
+
+FLAGS = ["C", "H", "N", "Z"]
+
+INITIAL_STATE = {
+    "A": "01",
+    "F": "CH-Z",
+    "B": "00",
+    "C": "13",
+    "D": "00",
+    "E": "D8",
+    "H": "01",
+    "L": "4D",
+    "SP": "FFFE",
+    "PC": "0100",
+}
+
+
+def unzip(rom_type, rom_n):
+    zip_path = os.path.join("./truth/zipped", rom_type, f"{rom_n}.zip")
+    unzip_dir = os.path.join("./truth/unzipped", rom_type)
+
+    os.makedirs(unzip_dir, exist_ok=True)
+
+    with zipfile.ZipFile(zip_path, 'r') as zf:
+        zf.extractall(unzip_dir)
+
+
+def parse_line(line):
+    data = {}
+    kvs = line.split(" ")
+    for kv in kvs:
+        k, v = kv.split(":")
+        if k == "F":
+            s = list(reversed('{0:08b}'.format(int(v,16))))
+            v = ''
+            for i in range(4,8):
+                if s[i] == '1':
+                    v += FLAGS[i-4]
+                else:
+                    v += '-'
+        data[k] = v
+
+    return data
+
+
+def format_line_from_data(data, differing_keys, color_red):
+    if color_red:
+        col_start = RED
+    else:
+        col_start = GREEN
+
+    pairs = []
+    for k in KEY_ORDER:
+        if k not in data:
+            continue
+        pair = f"{k}:{data[k]}"
+        if k in differing_keys:
+            pair = f"{col_start}{pair}{RESET}"
+
+        pairs.append(pair)
+
+    return " ".join(pairs)
+
+
+def format_line(line, differing_keys, color_red):
+    data = parse_line(line)
+    return format_line_from_data(data, differing_keys, color_red)
+
+
+with open("./opcode_annotations.json") as f:
+    opcode_annotations = json.load(f)
+
+
+def operation(line):
+    data = parse_line(line)
+
+    opcode = data["PCMEM"].split(",")[0].lower()
+    op = opcode_annotations["unprefixed"][f"0x{opcode}"]
+
+    return op
+
+
+def op_sig(op):
+    chunks = [
+        op['addr'].upper().replace('X', 'x'),
+        op['mnemonic'],
+    ]
+    if 'operand1' in op:
+        chunks.append(op['operand1'])
+    if 'operand2' in op:
+        chunks.append(op['operand2'])
+
+    return ' '.join(chunks)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+                    prog = './gameboy-doctor',
+                    description = 'TODO',
+                    epilog = 'TODO')
+
+    parser.add_argument('file', help='Path to log file')
+    parser.add_argument('rom_type', choices=['cpu_instrs'], help='the type of ROM being checked')
+    parser.add_argument('rom_number', type=int, help='the ROM number being checked')
+
+    args = parser.parse_args()
+
+    input_fpath = args.file
+    rom_type = args.rom_type
+    rom_n = args.rom_number
+
+    unzip(rom_type, rom_n)
+
+    truth_fpath = os.path.join("truth/unzipped", rom_type, f"{rom_n}.log")
+
+    with open(input_fpath) as f_input:
+        with open(truth_fpath) as f_truth:
+            line_n = 0
+
+            prev_truth = ""
+            while True:
+                line_input = f_input.readline().strip()
+                line_truth = f_truth.readline().strip()
+
+                if line_input == "" and line_truth == "":
+                    output = SUCCESS_MESSAGE
+                    output += "\n"
+                    output += f"\nYour log file matched mine for all {line_n} lines - you passed the test ROM!"
+                    output += "\n"
+
+                    print(output)
+
+                    break
+
+                if len(line_input) == 0 and len(line_truth) > 0:
+                    output = ERROR_MESSAGE
+                    output += "\n\nYour log file matched mine for the last {line_n} lines, but then it ended while mine still has more lines to go. This means that you ended your log collection from your emulator too soon.\n\nRerun your emulator and recapture your logs, but don't stop it until you see the word \"Passed\" printed to the screen or sent to your serial port."
+                    break
+
+                line_n += 1
+
+                if line_n == 1:
+                    input_parsed = parse_line(line_input)
+                    differing_keys = []
+                    for k in KEY_ORDER:
+                        if k == "PCMEM":
+                            continue
+                        if input_parsed[k] != INITIAL_STATE[k]:
+                            differing_keys.append(k)
+
+                    if len(differing_keys) > 0:
+                        t = format_line_from_data(INITIAL_STATE, differing_keys, False)
+                        i = format_line(line_input, differing_keys, True)
+
+                        output = ERROR_MESSAGE
+                        output += f"\n\nYour CPU is not initialized to the state it should have immediately after executing the Boot ROM. Please set its registers to the values below:"
+                        output += "\n"
+                        output += "\nMINE:\t" + t + "\n" + "YOURS:\t" + i
+                        print(output)
+
+                        break
+
+                if line_input != line_truth:
+                    input_parsed = parse_line(line_input)
+                    truth_parsed = parse_line(line_truth)
+
+                    differing_keys = []
+                    for k in KEY_ORDER:
+                        if input_parsed[k] != truth_parsed[k]:
+                            differing_keys.append(k)
+
+                    t = format_line(line_truth, differing_keys, False)
+                    i = format_line(line_input, differing_keys, True)
+
+                    output = ERROR_MESSAGE
+                    output += f"\n\nMismatch in CPU state at line {line_n}:"
+                    output += "\n"
+                    output += "\nMINE:\t" + t + "\n" + "YOURS:\t" + i
+                    output += "\n"
+
+                    if input_parsed['PC'] == truth_parsed['PC'] and input_parsed['PCMEM'] != truth_parsed['PCMEM']:
+                        output += "\nOur values for PC are the same, but the memory at the location of PC is different. Perhaps you told me to check the wrong ROM type or number?"
+                    elif len(prev_truth) > 0:
+                        prev_op = operation(prev_truth)
+
+                        output += f"\nThe CPU state before this (at line {line_n-1}) was:"
+                        output += "\n"
+                        output += "\n\t" + prev_truth
+                        output += "\n"
+                        output += f"\nThe last operation executed (in between lines {line_n-1} and {line_n}) was:"
+                        output += "\n"
+                        output += f"\n\t{op_sig(prev_op)}"
+                        output += "\n"
+                        output += "\nPerhaps the problem is with this opcode, or with your interrupt handling?"
+
+                    output += "\n"
+
+                    print(output)
+                    break
+
+                prev_truth = line_truth
+
