@@ -1,14 +1,18 @@
 # Gameboy Doctor
 
-Are you building a Gameboy emulator? Are you stuck? Are you failing [Blargg's test ROMs](https://github.com/retrio/gb-test-roms) and can't work out why?
+Are you [building a Gameboy emulator](https://gbdev.io/pandocs/)?
+
+<img src="./images/pokemon2.gif" width="300" />
+
+Are you stuck? Are you failing [Blargg's test ROMs](https://github.com/retrio/gb-test-roms) and can't work out why?
 
 Gameboy Doctor can help!
 
-![Gameboy Doctor Example](./example.jpg)
+<img src="./images/example.jpg" />
 
 ## What is Gameboy Doctor?
 
-Gameboy Doctor is a tool that compares your emulator to an example emulator that passes Blargg's test ROMs. It finds the exact tick when your emulator's state diverges from the example's, helping you isolate and fix your bugs. You don't need to have implemented an LCD in order to use it, and you don't even have to be able to successfully get any kind of pass/fail message back from Blargg! All you need is a minimally functional CPU and motherboard.
+Gameboy Doctor is a tool that compares your emulator to an example emulator that passes Blargg's test ROMs. It finds the exact tick where your emulator's state diverges from the example, helping you isolate and fix your bugs. You don't need to have implemented an LCD in order to use it, and you don't even have to be able to successfully get any kind of pass/fail message back from Blargg! All you need is a minimally functional CPU and motherboard.
 
 ## Requirements
 
@@ -21,6 +25,8 @@ Just Python3, no third-party libraries.
 Choose a [`cpu_instrs` individual test ROM](https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs/individual) (these are currently the only ones supported by Gameboy Doctor - see below)
 
 ### 2. Make 2 tweaks to your emulator
+
+You'll need to make 2 changes to the internal workings of your emulator. They'll probably take about 20 minutes to do, but they'll save you hours and days of aimless debugging. The changes are:
 
 * Initialize the CPU's state to the state it should have immediately after executing the boot ROM:
 
@@ -37,11 +43,11 @@ Choose a [`cpu_instrs` individual test ROM](https://github.com/retrio/gb-test-ro
 |SP|0xFFFE|
 |PC|0x0100|
 
-* Hardcode your LCD (or your motherboard's memory map if you haven't implemented an LCD yet) to return `0x90` when the `LY` register is read (memory location `0xFF44`). This is what I did when generating these logs, because returning a constant prevent spurious log divergences.
+* Hardcode your LCD (or your motherboard's memory map if you haven't implemented an LCD yet) to return `0x90` when the `LY` register is read (memory location `0xFF44`). This is what I did when generating my example logs, because returning a constant prevent spurious log divergences.
 
 ### 3. Log the state of your CPU
 
-Update your emulator to log the state of the CPU after each operation to a file, using the following format for each line (replace the example numbers with your CPU's values):
+Next, update your emulator to write the state of the CPU after each operation to a logfile. Use a new line for each tick, and use the following format for each state (replace the example numbers with your CPU's values):
 
 ```
 A:00 F:11 B:22 C:33 D:44 E:55 H:66 L:77 SP:8888 PC:9999 PCMEM:AA,BB,CC,DD
@@ -49,7 +55,7 @@ A:00 F:11 B:22 C:33 D:44 E:55 H:66 L:77 SP:8888 PC:9999 PCMEM:AA,BB,CC,DD
 
 All of the values between `A` and `PC` are the hex-encoded values of the corresponding registers. The final value (`PCMEM`) is the 4 bytes stored in the memory locations near `PC` (ie. the values at `pc,pc+1,pc+2,pc+3`).
 
-Run your emulator and create a log file. You can kill the program at any point - Gameboy Doctor will tell you if your log file is correct but ends before the test ROM has finished. If you pass the test then your emulator will display the word "Passed" on the LCD, and write the bytes for the word "Passed" to [the serial output](https://gbdev.io/pandocs/Serial_Data_Transfer_%28Link_Cable%29.html). However, you don't need to pass or even finish the tests in order to use Gameboy Doctor.
+Run your emulator and get a log file. You can kill the program at any point - Gameboy Doctor will tell you if your log file is correct but ends before the test ROM has finished its assertions. If you pass the test then your emulator will display the word "Passed" on the LCD, and write the bytes for the word "Passed" to [the serial output](https://gbdev.io/pandocs/Serial_Data_Transfer_%28Link_Cable%29.html). However, you don't need to pass or even finish the tests in order to use Gameboy Doctor.
 
 ### 4. Feed your logfile to Gameboy Doctor
 
@@ -105,6 +111,8 @@ Your log file matched mine for all 1066160 lines - you passed the test ROM!
 ## Future Work
 
 Gameboy Doctor currently only supports Blargg's `cpu_instrs` test ROMs because these are the most useful for initial debugging. It should be relatively easy to support other test ROMs, although small timing differences that don't affect the successful running of the emulator may cause divergences in CPU states between otherwise well-functioning emulators.
+
+Let me know if you find Gameboy Doctor useful and I'll work on expanding the ROMs and emulators it supports.
 
 ## Acknowledgements
 
