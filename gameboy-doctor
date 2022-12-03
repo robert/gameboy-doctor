@@ -4,6 +4,7 @@ import json
 import os
 import zipfile
 import argparse
+import sys
 
 KEY_ORDER = ['A', 'F', 'B', 'C', 'D', 'E', 'H', 'L', 'SP', 'PC', 'PCMEM']
 RED = u"\u001b[31m"
@@ -143,12 +144,12 @@ if __name__ == "__main__":
 
                     print(output)
 
-                    break
+                    sys.exit(0)
 
                 if len(line_input) == 0 and len(line_truth) > 0:
                     output = ERROR_MESSAGE
                     output += "\n\nYour log file matched mine for the last {line_n} lines, but then it ended while mine still has more lines to go. This means that you ended your log collection from your emulator too soon.\n\nRerun your emulator and recapture your logs, but don't stop it until you see the word \"Passed\" printed to the screen or sent to your serial port."
-                    break
+                    sys.exit(1)
 
                 line_n += 1
 
@@ -171,7 +172,7 @@ if __name__ == "__main__":
                         output += "\nMINE:\t" + t + "\n" + "YOURS:\t" + i
                         print(output)
 
-                        break
+                        sys.exit(1)
 
                 if line_input != line_truth:
                     input_parsed = parse_line(line_input)
@@ -209,7 +210,7 @@ if __name__ == "__main__":
                     output += "\n"
 
                     print(output)
-                    break
+                    sys.exit(1)
 
                 prev_truth = line_truth
 
