@@ -36,7 +36,7 @@ You'll need to make 2 changes to the internal workings of your emulator. They'll
 |F|0xB0 (or `CH-Z` if managing flags individually)|
 |B|0x00|
 |C|0x13|
-|D|0x13|
+|D|0x00|
 |E|0xD8|
 |H|0x01|
 |L|0x4D|
