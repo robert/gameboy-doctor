@@ -148,7 +148,8 @@ if __name__ == "__main__":
 
                 if len(line_input) == 0 and len(line_truth) > 0:
                     output = ERROR_MESSAGE
-                    output += "\n\nYour log file matched mine for the last {line_n} lines, but then it ended while mine still has more lines to go. This means that you ended your log collection from your emulator too soon.\n\nRerun your emulator and recapture your logs, but don't stop it until you see the word \"Passed\" printed to the screen or sent to your serial port."
+                    output += f"\n\nYour log file matched mine for the last {line_n} lines, but then it ended while mine still has more lines to go. This means that you ended your log collection from your emulator too soon.\n\nRerun your emulator and recapture your logs, but don't stop it until you see the word \"Passed\" printed to the screen or sent to your serial port."
+                    print(output)
                     sys.exit(1)
 
                 line_n += 1
