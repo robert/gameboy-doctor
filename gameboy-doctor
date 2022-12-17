@@ -136,7 +136,7 @@ if __name__ == "__main__":
                 line_input = f_input.readline().strip()
                 line_truth = f_truth.readline().strip()
 
-                if line_input == "" and line_truth == "":
+                if line_truth == "":
                     output = SUCCESS_MESSAGE
                     output += "\n"
                     output += f"\nYour log file matched mine for all {line_n} lines - you passed the test ROM!"
