@@ -40,12 +40,12 @@ def unzip(rom_type, rom_n):
         zf.extractall(unzip_dir)
 
 
-def parse_line(line):
+def parse_line(line, display_flags=True):
     data = {}
     kvs = line.split(" ")
     for kv in kvs:
         k, v = kv.split(":")
-        if k == "F":
+        if display_flags and k == "F":
             s = list(reversed('{0:08b}'.format(int(v,16))))
             v = ''
             for i in range(4,8):
@@ -78,7 +78,10 @@ def format_line_from_data(data, differing_keys, color_red):
 
 
 def format_line(line, differing_keys, color_red):
-    data = parse_line(line)
+    display_flags = True
+    if "F-LOW" in differing_keys:
+        display_flags = False
+    data = parse_line(line, display_flags)
     return format_line_from_data(data, differing_keys, color_red)
 
 
@@ -87,7 +90,7 @@ with open("./opcode_annotations.json") as f:
 
 
 def operation(line):
-    data = parse_line(line)
+    data = parse_line(line, True)
 
     opcode = data["PCMEM"].split(",")[0].lower()
     op = opcode_annotations["unprefixed"][f"0x{opcode}"]
@@ -176,11 +179,19 @@ if __name__ == "__main__":
                         sys.exit(1)
 
                 if line_input != line_truth:
-                    input_parsed = parse_line(line_input)
-                    truth_parsed = parse_line(line_truth)
+                    input_parsed = parse_line(line_input, False)
+                    truth_parsed = parse_line(line_truth, False)
 
                     differing_keys = []
                     for k in KEY_ORDER:
+                        if k == "F":
+                            if input_parsed[k] != truth_parsed[k]:
+                                differing_keys.append(k)
+                                input_low = input_parsed[k][1:2]
+                                truth_low = truth_parsed[k][1:2]
+                                if input_low != truth_low:
+                                    differing_keys.append(k + "-LOW")
+                            continue
                         if input_parsed[k] != truth_parsed[k]:
                             differing_keys.append(k)
 
