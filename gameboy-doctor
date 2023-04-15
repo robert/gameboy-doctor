@@ -110,13 +110,19 @@ def op_sig(op):
 
     return ' '.join(chunks)
 
+def get_input(file_path):
+    if file_path == '-':
+        return sys.stdin
+    else:
+        return open(file_path)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
                     prog = './gameboy-doctor',
                     description = 'TODO',
                     epilog = 'TODO')
 
-    parser.add_argument('file', help='Path to log file')
+    parser.add_argument('file', help='Path to log file or "-" to read from stdin')
     parser.add_argument('rom_type', choices=['cpu_instrs'], help='the type of ROM being checked')
     parser.add_argument('rom_number', type=int, help='the ROM number being checked')
 
@@ -126,103 +132,105 @@ if __name__ == "__main__":
     rom_type = args.rom_type
     rom_n = args.rom_number
 
+    f_input = get_input(input_fpath)
+
     unzip(rom_type, rom_n)
 
     truth_fpath = os.path.join("truth/unzipped", rom_type, f"{rom_n}.log")
 
-    with open(input_fpath) as f_input:
-        with open(truth_fpath) as f_truth:
-            line_n = 0
 
-            prev_truth = ""
-            while True:
-                line_input = f_input.readline().strip()
-                line_truth = f_truth.readline().strip()
+    with open(truth_fpath) as f_truth:
+        line_n = 0
 
-                if line_truth == "":
-                    output = SUCCESS_MESSAGE
-                    output += "\n"
-                    output += f"\nYour log file matched mine for all {line_n} lines - you passed the test ROM!"
-                    output += "\n"
+        prev_truth = ""
+        while True:
+            line_input = f_input.readline().strip()
+            line_truth = f_truth.readline().strip()
 
-                    print(output)
+            if line_truth == "":
+                output = SUCCESS_MESSAGE
+                output += "\n"
+                output += f"\nYour logs matched mine for all {line_n} lines - you passed the test ROM!"
+                output += "\n"
 
-                    sys.exit(0)
+                print(output)
 
-                if len(line_input) == 0 and len(line_truth) > 0:
-                    output = ERROR_MESSAGE
-                    output += f"\n\nYour log file matched mine for the last {line_n} lines, but then it ended while mine still has more lines to go. This means that you ended your log collection from your emulator too soon.\n\nRerun your emulator and recapture your logs, but don't stop it until you see the word \"Passed\" printed to the screen or sent to your serial port."
-                    print(output)
-                    sys.exit(1)
+                sys.exit(0)
 
-                line_n += 1
+            if len(line_input) == 0 and len(line_truth) > 0:
+                output = ERROR_MESSAGE
+                output += f"\n\nYour logs matched mine for the last {line_n} lines, but then it ended while mine still has more lines to go. This means that you ended your log collection from your emulator too soon.\n\nRerun your emulator and recapture your logs, but don't stop it until you see the word \"Passed\" printed to the screen or sent to your serial port."
+                print(output)
+                sys.exit(1)
 
-                if line_n == 1:
-                    input_parsed = parse_line(line_input)
-                    differing_keys = []
-                    for k in KEY_ORDER:
-                        if k == "PCMEM":
-                            continue
-                        if input_parsed[k] != INITIAL_STATE[k]:
-                            differing_keys.append(k)
+            line_n += 1
 
-                    if len(differing_keys) > 0:
-                        t = format_line_from_data(INITIAL_STATE, differing_keys, False)
-                        i = format_line(line_input, differing_keys, True)
+            if line_n == 1:
+                input_parsed = parse_line(line_input)
+                differing_keys = []
+                for k in KEY_ORDER:
+                    if k == "PCMEM":
+                        continue
+                    if input_parsed[k] != INITIAL_STATE[k]:
+                        differing_keys.append(k)
 
-                        output = ERROR_MESSAGE
-                        output += f"\n\nYour CPU is not initialized to the state it should have immediately after executing the Boot ROM. Please set its registers to the values below:"
-                        output += "\n"
-                        output += "\nMINE:\t" + t + "\n" + "YOURS:\t" + i
-                        print(output)
-
-                        sys.exit(1)
-
-                if line_input != line_truth:
-                    input_parsed = parse_line(line_input, False)
-                    truth_parsed = parse_line(line_truth, False)
-
-                    differing_keys = []
-                    for k in KEY_ORDER:
-                        if k == "F":
-                            if input_parsed[k] != truth_parsed[k]:
-                                differing_keys.append(k)
-                                input_low = input_parsed[k][1:2]
-                                truth_low = truth_parsed[k][1:2]
-                                if input_low != truth_low:
-                                    differing_keys.append(k + "-LOW")
-                            continue
-                        if input_parsed[k] != truth_parsed[k]:
-                            differing_keys.append(k)
-
-                    t = format_line(line_truth, differing_keys, False)
+                if len(differing_keys) > 0:
+                    t = format_line_from_data(INITIAL_STATE, differing_keys, False)
                     i = format_line(line_input, differing_keys, True)
 
                     output = ERROR_MESSAGE
-                    output += f"\n\nMismatch in CPU state at line {line_n}:"
+                    output += f"\n\nYour CPU is not initialized to the state it should have immediately after executing the Boot ROM. Please set its registers to the values below:"
                     output += "\n"
                     output += "\nMINE:\t" + t + "\n" + "YOURS:\t" + i
-                    output += "\n"
-
-                    if input_parsed['PC'] == truth_parsed['PC'] and input_parsed['PCMEM'] != truth_parsed['PCMEM']:
-                        output += "\nOur values for PC are the same, but the memory at the location of PC is different. Perhaps you told me to check the wrong ROM type or number?"
-                    elif len(prev_truth) > 0:
-                        prev_op = operation(prev_truth)
-
-                        output += f"\nThe CPU state before this (at line {line_n-1}) was:"
-                        output += "\n"
-                        output += "\n\t" + prev_truth
-                        output += "\n"
-                        output += f"\nThe last operation executed (in between lines {line_n-1} and {line_n}) was:"
-                        output += "\n"
-                        output += f"\n\t{op_sig(prev_op)}"
-                        output += "\n"
-                        output += "\nPerhaps the problem is with this opcode, or with your interrupt handling?"
-
-                    output += "\n"
-
                     print(output)
+
                     sys.exit(1)
 
-                prev_truth = line_truth
+            if line_input != line_truth:
+                input_parsed = parse_line(line_input, False)
+                truth_parsed = parse_line(line_truth, False)
+
+                differing_keys = []
+                for k in KEY_ORDER:
+                    if k == "F":
+                        if input_parsed[k] != truth_parsed[k]:
+                            differing_keys.append(k)
+                            input_low = input_parsed[k][1:2]
+                            truth_low = truth_parsed[k][1:2]
+                            if input_low != truth_low:
+                                differing_keys.append(k + "-LOW")
+                        continue
+                    if input_parsed[k] != truth_parsed[k]:
+                        differing_keys.append(k)
+
+                t = format_line(line_truth, differing_keys, False)
+                i = format_line(line_input, differing_keys, True)
+
+                output = ERROR_MESSAGE
+                output += f"\n\nMismatch in CPU state at line {line_n}:"
+                output += "\n"
+                output += "\nMINE:\t" + t + "\n" + "YOURS:\t" + i
+                output += "\n"
+
+                if input_parsed['PC'] == truth_parsed['PC'] and input_parsed['PCMEM'] != truth_parsed['PCMEM']:
+                    output += "\nOur values for PC are the same, but the memory at the location of PC is different. Perhaps you told me to check the wrong ROM type or number?"
+                elif len(prev_truth) > 0:
+                    prev_op = operation(prev_truth)
+
+                    output += f"\nThe CPU state before this (at line {line_n-1}) was:"
+                    output += "\n"
+                    output += "\n\t" + prev_truth
+                    output += "\n"
+                    output += f"\nThe last operation executed (in between lines {line_n-1} and {line_n}) was:"
+                    output += "\n"
+                    output += f"\n\t{op_sig(prev_op)}"
+                    output += "\n"
+                    output += "\nPerhaps the problem is with this opcode, or with your interrupt handling?"
+
+                output += "\n"
+
+                print(output)
+                sys.exit(1)
+
+            prev_truth = line_truth
 
