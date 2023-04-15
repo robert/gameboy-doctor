@@ -77,6 +77,11 @@ On windows you may need to invoke the Python interpreter directly:
 python3 gameboy-doctor /path/to/your/logfile cpu_instrs 3
 ```
 
+Alternatively, you can pipe your program's output directly into Gameboy Doctor by setting the logfile path to `"-"` like so:
+
+```
+your-emulator | gameboy-doctor - cpu_instrs 3
+```
 Gameboy Doctor will tell you how you're doing and give suggestions on bugfixes. For example:
 
 ```
