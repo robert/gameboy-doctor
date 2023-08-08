@@ -95,16 +95,17 @@ with open("./opcode_annotations.json") as f:
 
 
 def operation(line):
-    op = []
     data = parse_line(line, True)
+    PCMEM = data["PCMEM"].split(",")
 
-    opcode = data["PCMEM"].split(",")[0].lower()
-    potential_opcode = data["PCMEM"].split(",")[1].lower()
- 
-    op.append(opcode_annotations["unprefixed"][f"0x{opcode}"]);
+    opcode = PCMEM[0].lower()
+    op = [opcode_annotations["unprefixed"][f"0x{opcode}"]]
 
-    if(opcode == 'cb'):
-        op.append(opcode_annotations["cbprefixed"][f"0x{potential_opcode}"])
+    if opcode == 'cb':
+        next_opcode = PCMEM[1].lower()
+        next_op = opcode_annotations["cbprefixed"][f"0x{next_opcode}"]
+
+        op.append(next_op)
 
     return op
 
