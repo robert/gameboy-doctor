@@ -95,10 +95,16 @@ with open("./opcode_annotations.json") as f:
 
 
 def operation(line):
+    op = []
     data = parse_line(line, True)
 
     opcode = data["PCMEM"].split(",")[0].lower()
-    op = opcode_annotations["unprefixed"][f"0x{opcode}"]
+    potential_opcode = data["PCMEM"].split(",")[1].lower()
+ 
+    op.append(opcode_annotations["unprefixed"][f"0x{opcode}"]);
+
+    if(opcode == 'cb'):
+        op.append(opcode_annotations["cbprefixed"][f"0x{potential_opcode}"])
 
     return op
 
@@ -228,7 +234,9 @@ if __name__ == "__main__":
                     output += "\n"
                     output += f"\nThe last operation executed (in between lines {line_n-1} and {line_n}) was:"
                     output += "\n"
-                    output += f"\n\t{op_sig(prev_op)}"
+                    output += f"\n\t{op_sig(prev_op[0])}"
+                    if len(prev_op) == 2:
+                        output += f" -> {op_sig(prev_op[1])}"
                     output += "\n"
                     output += "\nPerhaps the problem is with this opcode, or with your interrupt handling?"
 
