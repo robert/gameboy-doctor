@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import json
-import os
 import zipfile
 import argparse
 import sys
+import pathlib
+
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 
 KEY_ORDER = ['A', 'F', 'B', 'C', 'D', 'E', 'H', 'L', 'SP', 'PC', 'PCMEM']
 RED = u"\u001b[31m"
@@ -32,16 +34,16 @@ INITIAL_STATE = {
 
 def unzip(rom_type, rom_n):
 
-    zip_path = os.path.join("./truth/zipped", rom_type, f"{rom_n}.zip")
-    unzip_dir = os.path.join("./truth/unzipped", rom_type)
-    dest = os.path.join(unzip_dir, f"{rom_n}.log")
-    os.makedirs(unzip_dir, exist_ok=True)
-    
+    zip_path = SCRIPT_DIR / "truth" / "zipped" / rom_type / f"{rom_n}.zip"
+    unzip_dir = SCRIPT_DIR / "truth" / "unzipped" / rom_type
+    dest = unzip_dir / f"{rom_n}.log"
+    unzip_dir.mkdir(parents=True, exist_ok=True)
+
     with zipfile.ZipFile(zip_path, 'r') as zf:
         size = sum([info.file_size for info in zf.infolist()])
-        if os.path.isfile(dest) and os.path.getsize(dest) == size:
+        if dest.is_file() and dest.stat().st_size == size:
             return
-        
+
         zf.extractall(unzip_dir)
 
 
@@ -90,7 +92,7 @@ def format_line(line, differing_keys, color_red):
     return format_line_from_data(data, differing_keys, color_red)
 
 
-with open("./opcode_annotations.json") as f:
+with (SCRIPT_DIR / "opcode_annotations.json").open() as f:
     opcode_annotations = json.load(f)
 
 
@@ -152,10 +154,10 @@ if __name__ == "__main__":
 
     unzip(rom_type, rom_n)
 
-    truth_fpath = os.path.join("truth/unzipped", rom_type, f"{rom_n}.log")
+    truth_fpath = SCRIPT_DIR / "truth" / "unzipped" / rom_type / f"{rom_n}.log"
 
 
-    with open(truth_fpath) as f_truth:
+    with truth_fpath.open() as f_truth:
         line_n = 0
 
         prev_truth = ""
