@@ -150,6 +150,16 @@ if __name__ == "__main__":
     rom_type = args.rom_type
     rom_n = args.rom_number
 
+    if rom_n == 2:
+        print("""
+        Sorry, the \"truth\" log for ROM 2 is currently incorrect! I haven't got round to
+        fixing it yet. If you are interested in creating a fixed version using a known-good
+        emulator then I'd (@robert) love to add it into the project.
+
+        See https://github.com/robert/gameboy-doctor/issues/12 .
+        """)
+        sys.exit(1)
+
     f_input = get_input(input_fpath)
 
     unzip(rom_type, rom_n)
