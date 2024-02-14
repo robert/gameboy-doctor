@@ -131,11 +131,41 @@ def op_sig(op):
 
     return ' '.join(chunks)
 
+def detect_encoding(file_path:str) -> str:
+    """
+    Detects the encoding of the file using either BOMs or 0 chars values (incoherent in ASCII).
+    Encoding can be :
+    - "utf-8-sig" (File may have BOM)
+    - "utf-16" (File has BOM)
+    - "utf-16le" (File does not have BOM)
+    - "utf-16be" (File does not have BOM)
+    """
+    with open(file_path, "rb") as f:
+        chars = f.read(4)
+        if chars[0] == 0xFF and chars[1] == 0xFE:
+            # Little endian BOM, bom is automatically discarded
+            return "utf-16"
+        elif chars[0] == 0xFE and chars[1] == 0xFF:
+            # Big endian BOM, bom is automatically discarded
+            return "utf-16"
+        elif chars[0] == 0xEF and chars[1] == 0xBB and chars[3] == 0xBF:
+            # UTF-8 BOM, bom is automatically discarded
+            return "utf-8-sig"
+        elif chars[0] != 0 and chars[1] == 0:
+            # Text is supposed to be ASCII, this 0 byte is the MSB of a char
+            return "utf-16be"
+        elif chars[0] == 0 and chars[1] != 0:
+            # Text is supposed to be ASCII, this 0 byte is the MSB of a char
+            return "utf-16le"
+        else:
+            return "utf-8-sig"
+
 def get_input(file_path):
     if file_path == '-':
         return sys.stdin
     else:
-        return open(file_path)
+        encoding = detect_encoding(file_path)
+        return open(file_path, "r", encoding=encoding)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
