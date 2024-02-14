@@ -9,6 +9,9 @@ import pathlib
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 
 KEY_ORDER = ['A', 'F', 'B', 'C', 'D', 'E', 'H', 'L', 'SP', 'PC', 'PCMEM']
+# The number of characters in a single line
+LINE_LENGTH= 73
+
 RED = u"\u001b[31m"
 GREEN = u"\u001b[32m"
 RESET = u"\u001b[0m"
@@ -172,7 +175,7 @@ if __name__ == "__main__":
 
         prev_truth = ""
         while True:
-            line_input = f_input.readline().strip()
+            line_input = f_input.readline().strip()[:LINE_LENGTH]
             line_truth = f_truth.readline().strip()
 
             if line_truth == "":
