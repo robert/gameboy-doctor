@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+from typing import Dict
 import zipfile
 import argparse
 import sys
@@ -50,11 +51,15 @@ def unzip(rom_type, rom_n):
         zf.extractall(unzip_dir)
 
 
-def parse_line(line, display_flags=True):
+def parse_line(line:str, display_flags:bool=True) -> Dict[str, str]:
     data = {}
     kvs = line.split(" ")
     for kv in kvs:
         k, v = kv.split(":")
+
+        if not(k in KEY_ORDER):
+            raise f"Unexpected key {k}"
+
         if display_flags and k == "F":
             s = list(reversed('{0:08b}'.format(int(v,16))))
             v = ''
@@ -227,7 +232,14 @@ if __name__ == "__main__":
             line_n += 1
 
             if line_n == 1:
-                input_parsed = parse_line(line_input)
+                try:
+                    input_parsed = parse_line(line_input)
+                except:
+                    output = f"Line {line_n} cannot be parsed, please fix it.\n"
+                    output += "\n"
+                    output += "YOURS:\t" + line_input
+                    sys.stderr.write(output)
+                    sys.exit(1)
                 differing_keys = []
                 for k in KEY_ORDER:
                     if k == "PCMEM":
@@ -248,7 +260,14 @@ if __name__ == "__main__":
                     sys.exit(1)
 
             if line_input.lower() != line_truth.lower():
-                input_parsed = parse_line(line_input, False)
+                try:
+                    input_parsed = parse_line(line_input, False)
+                except:
+                    output = f"Line {line_n + 1} cannot be parsed, please fix it.\n"
+                    output += "\n"
+                    output += "YOURS:\t" + line_input
+                    sys.stderr.write(output)
+                    sys.exit(1)
                 truth_parsed = parse_line(line_truth, False)
 
                 differing_keys = []
