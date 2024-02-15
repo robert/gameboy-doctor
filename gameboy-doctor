@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+from typing import Dict
 import zipfile
 import argparse
 import sys
@@ -9,6 +10,9 @@ import pathlib
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 
 KEY_ORDER = ['A', 'F', 'B', 'C', 'D', 'E', 'H', 'L', 'SP', 'PC', 'PCMEM']
+# The number of characters in a single line
+LINE_LENGTH= 73
+
 RED = u"\u001b[31m"
 GREEN = u"\u001b[32m"
 RESET = u"\u001b[0m"
@@ -47,11 +51,15 @@ def unzip(rom_type, rom_n):
         zf.extractall(unzip_dir)
 
 
-def parse_line(line, display_flags=True):
+def parse_line(line:str, display_flags:bool=True) -> Dict[str, str]:
     data = {}
     kvs = line.split(" ")
     for kv in kvs:
         k, v = kv.split(":")
+
+        if not(k in KEY_ORDER):
+            raise f"Unexpected key {k}"
+
         if display_flags and k == "F":
             s = list(reversed('{0:08b}'.format(int(v,16))))
             v = ''
@@ -128,11 +136,41 @@ def op_sig(op):
 
     return ' '.join(chunks)
 
+def detect_encoding(file_path:str) -> str:
+    """
+    Detects the encoding of the file using either BOMs or 0 chars values (incoherent in ASCII).
+    Encoding can be :
+    - "utf-8-sig" (File may have BOM)
+    - "utf-16" (File has BOM)
+    - "utf-16le" (File does not have BOM)
+    - "utf-16be" (File does not have BOM)
+    """
+    with open(file_path, "rb") as f:
+        chars = f.read(4)
+        if chars[0] == 0xFF and chars[1] == 0xFE:
+            # Little endian BOM, bom is automatically discarded
+            return "utf-16"
+        elif chars[0] == 0xFE and chars[1] == 0xFF:
+            # Big endian BOM, bom is automatically discarded
+            return "utf-16"
+        elif chars[0] == 0xEF and chars[1] == 0xBB and chars[3] == 0xBF:
+            # UTF-8 BOM, bom is automatically discarded
+            return "utf-8-sig"
+        elif chars[0] != 0 and chars[1] == 0:
+            # Text is supposed to be ASCII, this 0 byte is the MSB of a char
+            return "utf-16be"
+        elif chars[0] == 0 and chars[1] != 0:
+            # Text is supposed to be ASCII, this 0 byte is the MSB of a char
+            return "utf-16le"
+        else:
+            return "utf-8-sig"
+
 def get_input(file_path):
     if file_path == '-':
         return sys.stdin
     else:
-        return open(file_path)
+        encoding = detect_encoding(file_path)
+        return open(file_path, "r", encoding=encoding)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -172,7 +210,7 @@ if __name__ == "__main__":
 
         prev_truth = ""
         while True:
-            line_input = f_input.readline().strip()
+            line_input = f_input.readline().strip()[:LINE_LENGTH]
             line_truth = f_truth.readline().strip()
 
             if line_truth == "":
@@ -194,12 +232,19 @@ if __name__ == "__main__":
             line_n += 1
 
             if line_n == 1:
-                input_parsed = parse_line(line_input)
+                try:
+                    input_parsed = parse_line(line_input)
+                except:
+                    output = f"Line {line_n} cannot be parsed, please fix it.\n"
+                    output += "\n"
+                    output += "YOURS:\t" + line_input
+                    sys.stderr.write(output)
+                    sys.exit(1)
                 differing_keys = []
                 for k in KEY_ORDER:
                     if k == "PCMEM":
                         continue
-                    if input_parsed[k] != INITIAL_STATE[k]:
+                    if input_parsed[k].lower() != INITIAL_STATE[k].lower():
                         differing_keys.append(k)
 
                 if len(differing_keys) > 0:
@@ -214,21 +259,28 @@ if __name__ == "__main__":
 
                     sys.exit(1)
 
-            if line_input != line_truth:
-                input_parsed = parse_line(line_input, False)
+            if line_input.lower() != line_truth.lower():
+                try:
+                    input_parsed = parse_line(line_input, False)
+                except:
+                    output = f"Line {line_n + 1} cannot be parsed, please fix it.\n"
+                    output += "\n"
+                    output += "YOURS:\t" + line_input
+                    sys.stderr.write(output)
+                    sys.exit(1)
                 truth_parsed = parse_line(line_truth, False)
 
                 differing_keys = []
                 for k in KEY_ORDER:
                     if k == "F":
-                        if input_parsed[k] != truth_parsed[k]:
+                        if input_parsed[k].lower() != truth_parsed[k].lower():
                             differing_keys.append(k)
                             input_low = input_parsed[k][1:2]
                             truth_low = truth_parsed[k][1:2]
                             if input_low != truth_low:
                                 differing_keys.append(k + "-LOW")
                         continue
-                    if input_parsed[k] != truth_parsed[k]:
+                    if input_parsed[k].lower() != truth_parsed[k].lower():
                         differing_keys.append(k)
 
                 t = format_line(line_truth, differing_keys, False)
@@ -240,7 +292,7 @@ if __name__ == "__main__":
                 output += "\nMINE:\t" + t + "\n" + "YOURS:\t" + i
                 output += "\n"
 
-                if input_parsed['PC'] == truth_parsed['PC'] and input_parsed['PCMEM'] != truth_parsed['PCMEM']:
+                if input_parsed['PC'].lower() == truth_parsed['PC'].lower() and input_parsed['PCMEM'].lower() != truth_parsed['PCMEM'].lower():
                     output += "\nOur values for PC are the same, but the memory at the location of PC is different. Perhaps you told me to check the wrong ROM type or number?"
                 elif len(prev_truth) > 0:
                     prev_op = operation(prev_truth)
