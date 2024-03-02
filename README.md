@@ -47,7 +47,7 @@ You'll need to make 2 changes to the internal workings of your emulator. They'll
 
 ### 3. Log the state of your CPU
 
-Next, update your emulator to write the state of the CPU after each operation to a logfile. Use a new line for each tick, and use the following format for each state (replace the example numbers with your CPU's values):
+Next, update your emulator to write the state of the CPU after each executed opcode to a logfile. Use a new line for each tick, and use the following format for each state (replace the example numbers with your CPU's values):
 
 ```
 A:00 F:11 B:22 C:33 D:44 E:55 H:66 L:77 SP:8888 PC:9999 PCMEM:AA,BB,CC,DD
@@ -56,6 +56,8 @@ A:00 F:11 B:22 C:33 D:44 E:55 H:66 L:77 SP:8888 PC:9999 PCMEM:AA,BB,CC,DD
 All of the values between `A` and `PC` are the hex-encoded values of the corresponding registers. The final value (`PCMEM`) is the 4 bytes stored in the memory locations near `PC` (ie. the values at `pc,pc+1,pc+2,pc+3`).
 
 Run your emulator and get a log file. You can kill the program at any point - Gameboy Doctor will tell you if your log file is correct but ends before the test ROM has finished its assertions. If you pass the test then your emulator will display the word "Passed" on the LCD, and write the bytes for the word "Passed" to [the serial output](https://gbdev.io/pandocs/Serial_Data_Transfer_%28Link_Cable%29.html). However, you don't need to pass or even finish the tests in order to use Gameboy Doctor.
+
+**Note about 02-interrupts:** Make sure you don't write a log on every update, only if the CPU is not halting and executed an opcode.
 
 ### 4. Feed your logfile to Gameboy Doctor
 
