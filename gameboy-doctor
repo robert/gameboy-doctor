@@ -283,7 +283,7 @@ if __name__ == "__main__":
                 output += "\n"
 
                 if input_parsed['PC'].lower() == truth_parsed['PC'].lower() and input_parsed['PCMEM'].lower() != truth_parsed['PCMEM'].lower():
-                    output += "\nOur values for PC are the same, but the memory at the location of PC is different. Perhaps you told me to check the wrong ROM type or number?"
+                    output += "\nOur values for PC are the same, but the memory at the location of PC is different. Perhaps you told me to check the wrong ROM type or number? Or, perhaps your CPU is not writing to the memory bank accurately?"
                 elif len(prev_truth) > 0:
                     prev_op = operation(prev_truth)
 
